@@ -367,6 +367,29 @@ export default function App() {
   const [showUI,setShowUI]=useState(true);
   const [isFullscreen,setIsFullscreen]=useState(false);
   const [log,setLog]=useState([]);
+  const appRef=useRef(null);
+
+  const toggleFullscreen=useCallback(()=>{
+    // ネイティブ Fullscreen API を試行、失敗時は CSS fallback
+    if(!document.fullscreenElement){
+      const el=appRef.current||document.documentElement;
+      const req=el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen;
+      if(req){req.call(el).catch(()=>setIsFullscreen(p=>!p));}
+      else{setIsFullscreen(true);}
+    }else{
+      const ex=document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen;
+      if(ex){ex.call(document).catch(()=>setIsFullscreen(p=>!p));}
+      else{setIsFullscreen(false);}
+    }
+  },[]);
+
+  // Fullscreen API の状態を同期
+  useEffect(()=>{
+    const handler=()=>setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange",handler);
+    document.addEventListener("webkitfullscreenchange",handler);
+    return ()=>{document.removeEventListener("fullscreenchange",handler);document.removeEventListener("webkitfullscreenchange",handler);};
+  },[]);
 
   const addLog=useCallback(msg=>{
     const ts=new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
@@ -414,7 +437,7 @@ export default function App() {
       const n=parseInt(e.key);
       if(n>=1&&n<=presets.length){e.preventDefault();switchPreset(presets[n-1]);}
       if(e.key===" "){e.preventDefault();setPlaying(p=>!p);}
-      if(e.key==="f"||e.key==="F"){e.preventDefault();setIsFullscreen(p=>!p);}
+      if(e.key==="f"||e.key==="F"){e.preventDefault();toggleFullscreen();}
       if(e.key==="h"||e.key==="H"){e.preventDefault();setShowUI(p=>!p);}
     };
     window.addEventListener("keydown",handler);
@@ -437,7 +460,7 @@ export default function App() {
   const tabBtn=(id,label)=><button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 0",fontSize:11,fontWeight:600,color:tab===id?A:Ts,background:"transparent",border:"none",borderBottom:tab===id?`2px solid ${A}`:"2px solid transparent",cursor:"pointer",transition:"all .12s"}}>{label}</button>;
 
   return (
-    <div style={{position:isFullscreen?"fixed":"relative",inset:isFullscreen?0:"auto",zIndex:isFullscreen?9999:"auto",display:"flex",flexDirection:"column",height:"100vh",fontFamily:"'Noto Sans JP','Hiragino Sans',system-ui,sans-serif",background:"#0f0f15",color:T,overflow:"hidden"}}>
+    <div ref={appRef} style={{position:isFullscreen?"fixed":"relative",inset:isFullscreen?0:"auto",zIndex:isFullscreen?9999:"auto",display:"flex",flexDirection:"column",height:"100vh",fontFamily:"'Noto Sans JP','Hiragino Sans',system-ui,sans-serif",background:"#0f0f15",color:T,overflow:"hidden"}}>
 
       {showUI&&<header style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 16px",background:P,borderBottom:`1px solid ${B}`,flexShrink:0,zIndex:20}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -452,7 +475,7 @@ export default function App() {
           {!playing&&<div style={{padding:"3px 10px",borderRadius:10,background:"rgba(93,202,165,.12)",fontSize:10,color:A,fontWeight:700}}>⏸ フリーズ</div>}
           <button onClick={()=>{setIsLive(!isLive);addLog(isLive?"配信停止":"配信開始");}} style={{padding:"4px 12px",borderRadius:6,border:`1px solid ${isLive?LC:B}`,background:isLive?"rgba(226,75,74,.12)":"transparent",color:isLive?LC:Ts,cursor:"pointer",fontSize:10,fontWeight:600}}>{isLive?"配信停止":"配信開始"}</button>
           <span style={{fontSize:10,fontFamily:"monospace",color:Ts,padding:"3px 8px",borderRadius:5,background:P2}}>{resolution.w}×{resolution.h}</span>
-          <button onClick={()=>setIsFullscreen(p=>!p)} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${B}`,background:isFullscreen?Ad:"transparent",color:isFullscreen?A:Ts,cursor:"pointer",fontSize:10,fontWeight:600}}>{isFullscreen?"全画面解除":"全画面"}</button>
+          <button onClick={toggleFullscreen} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${B}`,background:isFullscreen?Ad:"transparent",color:isFullscreen?A:Ts,cursor:"pointer",fontSize:10,fontWeight:600}}>{isFullscreen?"全画面解除":"全画面"}</button>
           <button onClick={()=>setShowHelp(!showHelp)} style={{padding:"3px 10px",borderRadius:5,border:`1px solid ${B}`,background:showHelp?Ad:"transparent",color:showHelp?A:Ts,cursor:"pointer",fontSize:10,fontWeight:600}}>{showHelp?"解説ON":"解説OFF"}</button>
         </div>
       </header>}
@@ -463,7 +486,7 @@ export default function App() {
             <SplatCanvas splats={splats} camera={camera} time4D={time4D} resolution={resolution} isLive={isLive} playing={playing} scene={scene} onCameraChange={setCamera}/>
             <div style={{position:"absolute",top:10,right:10,display:"flex",gap:4,zIndex:10}}>
               <button onClick={()=>setShowUI(p=>!p)} style={{padding:"5px 12px",borderRadius:8,background:"rgba(0,0,0,.55)",backdropFilter:"blur(8px)",border:`1px solid ${B}`,color:"rgba(255,255,255,.6)",cursor:"pointer",fontSize:10,fontWeight:600}}>{showUI?"UI非表示 (H)":"UI表示 (H)"}</button>
-              {!showUI&&<button onClick={()=>setIsFullscreen(p=>!p)} style={{padding:"5px 12px",borderRadius:8,background:"rgba(0,0,0,.55)",backdropFilter:"blur(8px)",border:`1px solid ${B}`,color:"rgba(255,255,255,.5)",cursor:"pointer",fontSize:10}}>{isFullscreen?"全画面解除":"全画面"}</button>}
+              {!showUI&&<button onClick={toggleFullscreen} style={{padding:"5px 12px",borderRadius:8,background:"rgba(0,0,0,.55)",backdropFilter:"blur(8px)",border:`1px solid ${B}`,color:"rgba(255,255,255,.5)",cursor:"pointer",fontSize:10}}>{isFullscreen?"全画面解除":"全画面"}</button>}
             </div>
             {showUI&&<div style={{position:"absolute",top:10,left:10,padding:"5px 12px",borderRadius:8,background:"rgba(0,0,0,.55)",backdropFilter:"blur(8px)",fontSize:11,color:"rgba(255,255,255,.7)",display:"flex",alignItems:"center",gap:6,zIndex:10}}>
               <span>{presets.find(p=>p.id===activePreset)?.icon}</span>
@@ -522,13 +545,14 @@ export default function App() {
                   onClick={()=>document.getElementById("file-in")?.click()}
                   onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor="rgba(93,202,165,.5)";}}
                   onDragLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,.12)";}}
-                  onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="rgba(255,255,255,.12)";const f=e.dataTransfer.files[0];if(f){addLog(`ファイル読込: ${f.name}`);}}}>
+                  onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="rgba(255,255,255,.12)";const f=e.dataTransfer.files[0];if(f){addLog(`ファイル選択: ${f.name} (※レンダラー実装後に表示)`);}}} >
                   <div style={{fontSize:20,marginBottom:6,opacity:.4}}>📂</div>
                   <div style={{fontSize:12,color:Ts}}>
                     .splat / .ply / .splatv ファイルを<br/>ドラッグ&ドロップ または クリック
                   </div>
+                  <div style={{fontSize:9,color:"#EF9F27",marginTop:6}}>※ ファイル選択のみ対応（レンダリングは次期バージョン）</div>
                   <input id="file-in" type="file" accept=".splat,.ply,.splatv" style={{display:"none"}}
-                    onChange={e=>{const f=e.target.files?.[0];if(f) addLog(`ファイル読込: ${f.name}`);}}/>
+                    onChange={e=>{const f=e.target.files?.[0];if(f) addLog(`ファイル選択: ${f.name} (※レンダラー実装後に表示)`);}}/>
                 </div>
               </div>
 
@@ -537,24 +561,38 @@ export default function App() {
                 <div style={{display:"flex",gap:6}}>
                   <input id="url-input" type="text" placeholder="https://...splat または .ply のURL"
                     style={{flex:1,padding:"7px 10px",fontSize:11,borderRadius:6,border:`1px solid ${B}`,background:P2,color:T}}/>
-                  <button onClick={()=>{const v=document.getElementById("url-input")?.value;if(v)addLog(`URL読込: ${v}`);}}
-                    style={{padding:"7px 14px",borderRadius:6,border:`1px solid ${B}`,background:P2,color:T,cursor:"pointer",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>読込</button>
+                  <button onClick={()=>{const v=document.getElementById("url-input")?.value;if(v)addLog(`URL登録: ${v} (※レンダラー実装後に読込)`);}}
+                    style={{padding:"7px 14px",borderRadius:6,border:`1px solid ${B}`,background:P2,color:T,cursor:"pointer",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>登録</button>
                 </div>
+                <div style={{fontSize:9,color:Ts,marginTop:4}}>※ URL登録のみ対応。WebGLレンダラー統合後にフェッチ&表示が有効になります</div>
               </div>
 
               <div>
-                <span style={{fontSize:10,fontWeight:700,color:Ts,textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:8}}>サンプルデータ</span>
+                <span style={{fontSize:10,fontWeight:700,color:Ts,textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:8}}>サンプルデータ（Hugging Face）</span>
+                <div style={{padding:"8px 10px",borderRadius:6,background:"rgba(239,159,39,.08)",border:"1px solid rgba(239,159,39,.2)",fontSize:10,color:"#EF9F27",lineHeight:1.6,marginBottom:8}}>
+                  ⚠ 外部 .splat データの読み込み・レンダリングは次期バージョンで実装予定です。<br/>
+                  現在はデモの人型モデルが表示されます。
+                </div>
                 <div style={{display:"flex",flexDirection:"column",gap:4}}>
                   {[
-                    {name:"Bonsai (7k)",url:"https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/bonsai/bonsai-7k.splat",size:"7K splats"},
-                    {name:"Train (7k)",url:"https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/train/train-7k.splat",size:"7K splats"},
-                    {name:"Truck (7k)",url:"https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/truck/truck-7k.splat",size:"7K splats"},
+                    {name:"Bonsai",url:"https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/bonsai/bonsai-7k.splat",size:"~3.5 MB"},
+                    {name:"Bicycle",url:"https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/bicycle/bicycle-7k.splat",size:"~3.5 MB"},
+                    {name:"Garden",url:"https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/garden/garden-7k.splat",size:"~3.5 MB"},
+                    {name:"Stump",url:"https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/stump/stump-7k.splat",size:"~3.5 MB"},
+                    {name:"Kitchen",url:"https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/kitchen/kitchen-7k.splat",size:"~3.5 MB"},
                   ].map(d=>(
-                    <button key={d.name} onClick={()=>addLog(`サンプル読込: ${d.name}`)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderRadius:6,border:`1px solid ${B}`,background:P2,cursor:"pointer",color:T,fontSize:11,textAlign:"left"}}>
-                      <span style={{fontWeight:600}}>{d.name}</span>
+                    <div key={d.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderRadius:6,border:`1px solid ${B}`,background:P2,fontSize:11}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{fontWeight:600,color:T}}>{d.name}</span>
+                        <span style={{fontSize:8,padding:"1px 6px",borderRadius:3,background:"rgba(255,255,255,.06)",color:Ts}}>実装予定</span>
+                      </div>
                       <span style={{fontSize:9,color:Ts}}>{d.size}</span>
-                    </button>
+                    </div>
                   ))}
+                </div>
+                <div style={{marginTop:8,padding:"8px 10px",borderRadius:6,background:P2,fontSize:9,color:Ts,lineHeight:1.6}}>
+                  <b style={{color:T}}>実装に必要なもの:</b> gsplat.js または antimatter15/splat の<br/>
+                  WebGLレンダラーを統合し、.splat バイナリをパース→GPUに送信する処理を追加
                 </div>
               </div>
 
